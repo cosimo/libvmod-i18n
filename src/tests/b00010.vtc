@@ -1,0 +1,27 @@
+varnishtest "Check parsing of Accept-Language header"
+
+server s1 {
+    rxreq
+    expect req.url == "/"
+    expect req.http.X-Accept-Language == "fr"
+    txresp
+} -start
+
+varnish v1 -vcl+backend {
+    import i18n from "${vmod_topbuild}/src/.libs/libvmod_i18n.so";
+
+    sub vcl_init {
+        i18n.default_language("en");
+        i18n.supported_languages(":fr:");
+    }
+
+    sub vcl_recv {
+        set req.http.X-Accept-Language = i18n.match("fr");
+        return (pass);
+    }
+} -start
+
+client c1 {
+    txreq -url /
+    rxresp
+} -run

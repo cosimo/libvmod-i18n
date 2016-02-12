@@ -1,0 +1,26 @@
+varnishtest "best_match() should work with no configuration"
+
+server s1 {
+    rxreq
+    expect req.url == "/"
+    expect req.http.X-result == "fr"
+    txresp
+} -start
+
+varnish v1 -vcl+backend {
+    import i18n from "${vmod_topbuild}/src/.libs/libvmod_i18n.so";
+
+    sub vcl_init {
+        i18n.supported_languages(":fr:");
+    }
+
+    sub vcl_recv {
+        set req.http.X-result = i18n.match(req.http.Accept-Language);
+        return (pass);
+    }
+} -start
+
+client c1 {
+    txreq -url / -hdr "Accept-Language: fr"
+    rxresp
+} -run

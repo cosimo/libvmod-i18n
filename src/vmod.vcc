@@ -1,0 +1,93 @@
+# This code is offered under the Open Source BSD license.
+# 
+# Copyright (c) 2016 Opera Software. All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+#  * Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 
+#  * Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+# 
+#  * Neither the name of Opera Software nor the names of its contributors may
+#    be used to endorse or promote products derived from this software without
+#    specific prior written permission.
+# 
+# DISCLAIMER OF WARRANTY
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+# ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Module i18n
+Init init_function
+
+# match(STRING)
+#
+# Reads the Accept-Language header (or any other string passed to it), and
+# carries out Accept-Language parsing. The (language, q) pairs found are
+# sorted by priority (q), and the first language that is also declared as
+# supported (through the `supported_languages()' call, gets returned.
+#
+# If no languages are supported, all languages are assumed to be supported.
+#
+# If no default language has been specified, English is assumed ("en").
+#
+# Example:
+#
+#    sub vcl_recv {
+#        set req.http.Lang = i18n.match(req.http.Accept-Language);
+#    }
+#
+Function STRING match(PRIV_VCL, STRING)
+
+# default_language(STRING)
+#
+# Typically used in vcl_init(), to specify which language should be assumed
+# as default when Accept-Language is either empty, or none of the languages in
+# it are supported.
+#
+# If no default language is specified, English is assumed ("en").
+#
+Function VOID default_language(PRIV_VCL, STRING)
+
+# is_supported(STRING)
+#
+# Returns 0 if the specified language is supported, otherwise 1.
+#
+Function INT is_supported(PRIV_VCL, STRING)
+
+# supported_languages(STRING)
+#
+# Typically used in vcl_init(), to specify which languages your site or service
+# supports. Note that this is a string, not a list, so you need to specify the
+# list of supported languages as a colon-separated.
+#
+# Example:
+#
+#     sub vcl_init {
+#         i18n.supported_languages("de:fr:fr-CA:en:hi:it:ja");
+#     }
+#
+Function VOID supported_languages(PRIV_VCL, STRING)
+
+# parse(STRING, STRING)
+#
+# Internal function that performs the Accept-Language string parsing (first
+# parameter). The second parameter is the default language to be returned if
+# no language is supported or Accept-Language is empty.
+#
+# If you're not sure about using this function, it's because you shouldn't be
+# using it. Use `match()' instead.
+#
+Function VOID parse(PRIV_VCL, STRING, STRING)
