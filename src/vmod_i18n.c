@@ -48,9 +48,11 @@
 
 #define LANG_LIST_SIZE 8
 #define HDR_MAXLEN 256
-#define LANG_MAXLEN 8
+#define LANG_MAXLEN 12
 
 struct language {
+    unsigned magic;
+#define LANG_MAGIC      0x53537101
     char name[LANG_MAXLEN];
     float q;
     VTAILQ_ENTRY(language) list;
@@ -143,6 +145,15 @@ vmod_default_language(struct sess *sp, struct vmod_priv *priv,
     AN(priv);
 
     v = vmod_get(priv);
+
+    /* Deallocate the previous string (if any).
+       For when i18n.default_language() is used outside of vcl_init().
+       This may happen if you're serving two domains with the same VCL. */
+    if (v->default_language) {
+        free(v->default_language);
+        v->default_language = NULL;
+    }
+
     v->default_language = strdup(def_lang);
     /* fprintf(stderr, "default_language: %s\n", v->default_language); */
 }
@@ -160,8 +171,16 @@ vmod_supported_languages(struct sess *sp, struct vmod_priv *priv,
     AN(priv);
 
     v = vmod_get(priv);
-    p = malloc(strlen(lang_list) + 3);
 
+    /* Deallocate the pre-existing string (if any)
+       For when i18n.supported_languages() is used outside of vcl_init().
+       This may happen if you're serving two domains with the same VCL. */
+    if (v->supported_languages) {
+        free(v->supported_languages);
+        v->supported_languages = NULL;
+    }
+
+    p = malloc(strlen(lang_list) + 3);
     if (p == NULL) {
         VSL(SLT_VCL_Log, 0, "i18n-vmod: no storage for supported_languages");
         return;
@@ -176,7 +195,13 @@ vmod_supported_languages(struct sess *sp, struct vmod_priv *priv,
 }
 
 
-/* Checks if a given language is in the static list of the ones we support */
+/* Checks if a given language is in the static list of the ones we support.
+
+   Note: if you never call `i18n.supported_languages()` in your vcl_init
+   to declare which are your supported languages, the code will assume that
+   *any* language is supported. This is to make it work even with no
+   configuration.
+*/
 int
 vmod_is_supported(struct sess *sp, struct vmod_priv *priv, const char *lang)
 {
@@ -218,23 +243,12 @@ vmod_is_supported(struct sess *sp, struct vmod_priv *priv, const char *lang)
     return is_supported;
 }
 
-/* Used by qsort() below
-static int
-sort_by_q(const void *x, const void *y)
-{
-    struct lang_list *a = (struct lang_list *)x;
-    struct lang_list *b = (struct lang_list *)y;
-    if (a->q > b->q) return -1;
-    if (a->q < b->q) return 1;
-    return 0;
-}
-*/
-
 
 void
 push_lang(struct sess *sp, struct vmod_i18n *v, const char *name, float q)
 {
-    struct language *l;
+    struct language *l, *p, *pi;
+    unsigned added = 0;
 
     AN(sp);
     AN(v);
@@ -244,14 +258,48 @@ push_lang(struct sess *sp, struct vmod_i18n *v, const char *name, float q)
         VSL(SLT_VCL_Log, 0, "i18n-vmod: unable to get storage for language");
         return;
     }
-    strncpy(l->name, name, LANG_MAXLEN); /*WS_Dup(sp->ws, name);*/
+    l->magic = LANG_MAGIC;
+    strncpy(l->name, name, LANG_MAXLEN);
 
     if (q <= 0.0)
         q = 1.0;
 
     l->q = q;
 
-    VTAILQ_INSERT_TAIL(&v->pl, l, list);
+    /* Insert the new language in reverse sorted q order */
+    p = VTAILQ_FIRST(&v->pl);
+
+    /* List is currently empty, so append */
+    if (p == NULL) {
+        VTAILQ_INSERT_TAIL(&v->pl, l, list);
+    }
+    else {
+
+        /* New language q is highest */
+        if (q > p->q) {
+            VTAILQ_INSERT_HEAD(&v->pl, l, list);
+        }
+
+        /* Same value of q, add as next element, retaining original order */
+        else if (abs(q - p->q) < 0.00001) {
+            VTAILQ_INSERT_AFTER(&v->pl, p, l, list);
+        }
+
+        /* Insert before the first lesser q value */
+        else {
+            VTAILQ_FOREACH(p, &v->pl, list) {
+                CHECK_OBJ_NOTNULL(p, LANG_MAGIC);
+                if (q > p->q) {
+                    VTAILQ_INSERT_BEFORE(p, l, list);
+                    added = 1;
+                    break;
+                }
+            }
+            if (! added) {
+                VTAILQ_INSERT_TAIL(&v->pl, l, list);
+            }
+        }
+    }
 }
 
 
@@ -277,7 +325,7 @@ vmod_parse(struct sess *sp, struct vmod_priv *priv,
     AN(priv);
     v = vmod_get(priv);
     CHECK_OBJ_NOTNULL(v, VMOD_I18N_MAGIC);
-        
+
     VSL(SLT_VCL_Log, 0, "i18n-vmod: parsing '%s'", accept_lang);
 
     VTAILQ_INIT(&v->pl);
@@ -315,6 +363,7 @@ vmod_parse(struct sess *sp, struct vmod_priv *priv,
     while ((lang_tok = strtok_r(header, " ,", &pos))) {
 
         q = 1.0;
+        i++;
 
         if ((q_spec = strstr(lang_tok, ";q="))) {
             /* Truncate language name before ';' */
@@ -330,21 +379,20 @@ vmod_parse(struct sess *sp, struct vmod_priv *priv,
         VSL(SLT_VCL_Log, 0, "i18n-vmod: before vmod_is_supported");
 
         /* Push in the prioritized list */
-        if (! vmod_is_supported(sp, priv, lang_tok)) {
-            continue;
+        if (vmod_is_supported(sp, priv, lang_tok)) {
+            VSL(SLT_VCL_Log, 0, "i18n-vmod: push_lang %s %.3f", lang_tok, q);
+            push_lang(sp, v, lang_tok, q);
         }
-
-        VSL(SLT_VCL_Log, 0, "i18n-vmod: after vmod_is_supported");
-
-        push_lang(sp, v, lang_tok, q);
-        i++;
 
         /* For cases like 'en-GB', we also want the root language in the final list */
         if ('-' == lang_tok[2]) {
             root_lang[0] = lang_tok[0];
             root_lang[1] = lang_tok[1];
             root_lang[2] = '\0';
-            push_lang(sp, v, root_lang, q - 0.001);
+            VSL(SLT_VCL_Log, 0, "i18n-vmod: added root language '%s'", root_lang);
+            if (vmod_is_supported(sp, priv, root_lang)) {
+                push_lang(sp, v, root_lang, q - 0.001);
+            }
         }
 
         /* For strtok_r() to proceed from where it left off */
@@ -356,18 +404,6 @@ vmod_parse(struct sess *sp, struct vmod_priv *priv,
     }
 
     VSL(SLT_VCL_Log, 0, "i18n-vmod: parsed %i languages", i);
-
-    /* TODO Sort by priority */
-    /* qsort(pl, curr_lang, sizeof(struct lang_list), &sort_by_q); */
-
-    /* Match with supported languages
-    for (i = 0; i < curr_lang; i++) {
-        if (vmod_is_supported(pl[i].lang))
-            return pl[i].lang;
-    }
-
-    return def;
-    */
 }
 
 /* Reads Accept-Language header (or any other string passed to it), and carries

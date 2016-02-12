@@ -1,0 +1,42 @@
+varnishtest "match() returns the default language when no match is found"
+
+server s1 {
+
+    rxreq
+    expect req.url == "/"
+    expect req.http.X-result == "i-klingon"
+    txresp
+
+    rxreq
+    expect req.url == "/"
+    expect req.http.X-result == "i-klingon"
+    txresp
+
+} -start
+
+varnish v1 -vcl+backend {
+    import i18n from "${vmod_topbuild}/src/.libs/libvmod_i18n.so";
+
+    sub vcl_init {
+        i18n.default_language("i-klingon");
+        i18n.supported_languages("i-klingon");
+    }
+
+    sub vcl_recv {
+        set req.http.X-result = i18n.match(req.http.Accept-Language);
+        return (pass);
+    }
+} -start
+
+client c1 {
+
+    # No Accept-Language header, the default language is returned
+    txreq -url /
+    rxresp
+
+    # Send a language that's not supported.
+    # The default language should still be returned.
+    txreq -url / -hdr "Accept-Language: it"
+    rxresp
+
+} -run

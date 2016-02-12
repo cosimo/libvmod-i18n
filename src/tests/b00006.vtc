@@ -1,0 +1,89 @@
+varnishtest "We can correctly parse q values and sort preferred languages by q"
+
+server s1 {
+
+    rxreq
+    expect req.http.X-result == "it"
+    txresp
+
+    rxreq
+    expect req.http.X-result == "it"
+    txresp
+
+    rxreq
+    expect req.http.X-result == "it"
+    txresp
+
+    rxreq
+    expect req.http.X-result == "it"
+    txresp
+
+    rxreq
+    expect req.http.X-result == "it"
+    txresp
+
+    rxreq
+    expect req.http.X-result == "de"
+    txresp
+
+    rxreq
+    expect req.http.X-result == "de"
+    txresp
+
+    rxreq
+    expect req.http.X-result == "de"
+    txresp
+
+    rxreq
+    expect req.http.X-result == "fr"
+    txresp
+
+} -start
+
+varnish v1 -vcl+backend {
+    import i18n from "${vmod_topbuild}/src/.libs/libvmod_i18n.so";
+
+    sub vcl_init {
+        i18n.default_language("it");
+        i18n.supported_languages("de:fr:en:it");
+    }
+
+    sub vcl_recv {
+        set req.http.X-result = i18n.match(req.http.Accept-Language);
+        return (pass);
+    }
+} -start
+
+client c1 {
+
+    # No Accept-Language header, the default language is returned
+    txreq -url /
+    rxresp
+
+    # Send a language that's not supported.
+    # The default language should still be returned.
+    txreq -url / -hdr "Accept-Language: ja"
+    rxresp
+    
+    txreq -url / -hdr "Accept-Language: ja;q=0.9,zh-TW;q=0.3"
+    rxresp
+
+    txreq -url / -hdr "Accept-Language: ja;q=0.9,it;q=0.8"
+    rxresp
+
+    txreq -url / -hdr "Accept-Language: ja;q=0.9,fr;q=0.3,de;q=.5,it;q=0.8"
+    rxresp
+
+    txreq -url / -hdr "Accept-Language: ja;q=0.9,zh-CN;q=0.85,fr;q=0.3,de;q=.98,it;q=0.8"
+    rxresp
+
+    txreq -url / -hdr "Accept-Language: de-DE;q=1.0"
+    rxresp
+
+    txreq -url / -hdr "Accept-Language: de-DE;q=1"
+    rxresp
+
+    txreq -url / -hdr "Accept-Language: de-DE;q=0.8,it-IT;q=0.9,fr-FR;q=0.91,"
+    rxresp
+
+} -run

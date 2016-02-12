@@ -1,4 +1,4 @@
-varnishtest "best_match() should work out of the box with no configuration"
+varnishtest "match() works out of the box with no configuration"
 
 server s1 {
     rxreq

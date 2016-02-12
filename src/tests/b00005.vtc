@@ -1,0 +1,69 @@
+varnishtest "we can handle some gibberish being thrown at us"
+
+server s1 {
+
+    rxreq
+    expect req.url == "/"
+    expect req.http.X-result == "it"
+    txresp
+
+    rxreq
+    expect req.url == "/"
+    expect req.http.X-result == "it"
+    txresp
+
+    rxreq
+    expect req.url == "/"
+    expect req.http.X-result == "it"
+    txresp
+
+    rxreq
+    expect req.url == "/"
+    expect req.http.X-result == "it"
+    txresp
+
+    rxreq
+    expect req.url == "/"
+    expect req.http.X-result == "it"
+    txresp
+
+} -start
+
+varnish v1 -vcl+backend {
+    import i18n from "${vmod_topbuild}/src/.libs/libvmod_i18n.so";
+
+    sub vcl_init {
+        i18n.default_language("it");
+        i18n.supported_languages("de:fr:en:it");
+    }
+
+    sub vcl_recv {
+        set req.http.X-result = i18n.match(req.http.Accept-Language);
+        return (pass);
+    }
+} -start
+
+client c1 {
+
+    # No Accept-Language header, the default language is returned
+    txreq -url /
+    rxresp
+
+    # Send a language that's not supported.
+    # The default language should still be returned.
+    txreq -url / -hdr "Accept-Language: ja"
+    rxresp
+
+    # Send gibberish. Still default language should be returned.
+    txreq -url / -hdr "Accept-Language: 021kccq12u3e012930128312831k2lkl123"
+    rxresp
+
+    # More gibberish
+    txreq -url / -hdr "Accept-Language: 0'1298-';1023'102///cx!@#!*@)(%$*!"
+    rxresp
+
+    # Some fairly long gibberish string this time
+    txreq -url / -hdr "Accept-Language: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    rxresp
+
+} -run

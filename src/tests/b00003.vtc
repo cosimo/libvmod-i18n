@@ -1,0 +1,75 @@
+varnishtest "It should be possible to redefine the supported languages list"
+
+server s1 {
+    rxreq
+    expect req.url == "/"
+    expect req.http.Host == "a.domain.tld"
+    expect req.http.X-result == "fil"
+    txresp
+    rxreq
+    expect req.url == "/"
+    expect req.http.Host == "a.domain.tld"
+    expect req.http.X-result == "de"
+    txresp
+    rxreq
+    expect req.url == "/"
+    expect req.http.Host == "a.domain.tld"
+    expect req.http.X-result == "it"
+    txresp
+    rxreq
+    expect req.url == "/"
+    expect req.http.Host == "b.domain.tld"
+    expect req.http.X-result == "fr"
+    txresp
+    rxreq
+    expect req.url == "/"
+    expect req.http.Host == "b.domain.tld"
+    expect req.http.X-result == "fil"
+    txresp
+    rxreq
+    expect req.url == "/"
+    expect req.http.Host == "b.domain.tld"
+    expect req.http.X-result == "fil"
+    txresp
+    rxreq
+    expect req.url == "/"
+    expect req.http.Host == "b.domain.tld"
+    expect req.http.X-result == "ja"
+    txresp
+} -start
+
+varnish v1 -vcl+backend {
+    import i18n from "${vmod_topbuild}/src/.libs/libvmod_i18n.so";
+
+    sub vcl_init {
+        i18n.default_language("fil");
+    }
+
+    sub vcl_recv {
+        if (req.http.Host == "a.domain.tld") {
+            i18n.supported_languages("de:it");
+        }
+        elsif (req.http.Host == "b.domain.tld") {
+            i18n.supported_languages("fr:ja");
+        }
+        set req.http.X-result = i18n.match(req.http.Accept-Language);
+        return (pass);
+    }
+} -start
+
+client c1 {
+    txreq -url / -hdr "Host: a.domain.tld" -hdr "Accept-Language: fr"
+    rxresp
+    txreq -url / -hdr "Host: a.domain.tld" -hdr "Accept-Language: de"
+    rxresp
+    txreq -url / -hdr "Host: a.domain.tld" -hdr "Accept-Language: it"
+    rxresp
+    txreq -url / -hdr "Host: b.domain.tld" -hdr "Accept-Language: fr"
+    rxresp
+    txreq -url / -hdr "Host: b.domain.tld" -hdr "Accept-Language: de"
+    rxresp
+    txreq -url / -hdr "Host: b.domain.tld" -hdr "Accept-Language: it"
+    rxresp
+    txreq -url / -hdr "Host: b.domain.tld" -hdr "Accept-Language: ja"
+    rxresp
+} -run

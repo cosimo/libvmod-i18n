@@ -1,4 +1,4 @@
-varnishtest "Not necessary to include ':' chars in supported_languages string"
+varnishtest "It's not necessary to include leading and trailing ':' chars in supported_languages"
 
 server s1 {
     rxreq
