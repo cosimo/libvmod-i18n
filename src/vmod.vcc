@@ -80,14 +80,3 @@ Function INT is_supported(PRIV_VCL, STRING)
 #     }
 #
 Function VOID supported_languages(PRIV_VCL, STRING)
-
-# parse(STRING, STRING)
-#
-# Internal function that performs the Accept-Language string parsing (first
-# parameter). The second parameter is the default language to be returned if
-# no language is supported or Accept-Language is empty.
-#
-# If you're not sure about using this function, it's because you shouldn't be
-# using it. Use `match()' instead.
-#
-Function VOID parse(PRIV_VCL, STRING, STRING)
