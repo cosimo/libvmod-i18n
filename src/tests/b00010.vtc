@@ -2,7 +2,6 @@ varnishtest "Check parsing of Accept-Language header"
 
 server s1 {
     rxreq
-    expect req.url == "/"
     expect req.http.X-Accept-Language == "fr"
     txresp
 } -start

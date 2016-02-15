@@ -2,7 +2,6 @@ varnishtest "match() works out of the box with no configuration"
 
 server s1 {
     rxreq
-    expect req.url == "/"
     expect req.http.X-result == "fr"
     txresp
 } -start

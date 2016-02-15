@@ -2,7 +2,6 @@ varnishtest "It's not necessary to include leading and trailing ':' chars in sup
 
 server s1 {
     rxreq
-    expect req.url == "/"
     expect req.http.X-result == "fr"
     txresp
 } -start

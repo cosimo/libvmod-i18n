@@ -2,37 +2,30 @@ varnishtest "It should be possible to redefine the supported languages list"
 
 server s1 {
     rxreq
-    expect req.url == "/"
     expect req.http.Host == "a.domain.tld"
     expect req.http.X-result == "fil"
     txresp
     rxreq
-    expect req.url == "/"
     expect req.http.Host == "a.domain.tld"
     expect req.http.X-result == "de"
     txresp
     rxreq
-    expect req.url == "/"
     expect req.http.Host == "a.domain.tld"
     expect req.http.X-result == "it"
     txresp
     rxreq
-    expect req.url == "/"
     expect req.http.Host == "b.domain.tld"
     expect req.http.X-result == "fr"
     txresp
     rxreq
-    expect req.url == "/"
     expect req.http.Host == "b.domain.tld"
     expect req.http.X-result == "fil"
     txresp
     rxreq
-    expect req.url == "/"
     expect req.http.Host == "b.domain.tld"
     expect req.http.X-result == "fil"
     txresp
     rxreq
-    expect req.url == "/"
     expect req.http.Host == "b.domain.tld"
     expect req.http.X-result == "ja"
     txresp

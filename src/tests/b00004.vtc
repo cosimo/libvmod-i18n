@@ -3,12 +3,10 @@ varnishtest "match() returns the default language when no match is found"
 server s1 {
 
     rxreq
-    expect req.url == "/"
     expect req.http.X-result == "i-klingon"
     txresp
 
     rxreq
-    expect req.url == "/"
     expect req.http.X-result == "i-klingon"
     txresp
 

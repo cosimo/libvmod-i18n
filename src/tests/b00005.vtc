@@ -3,27 +3,22 @@ varnishtest "we can handle some gibberish being thrown at us"
 server s1 {
 
     rxreq
-    expect req.url == "/"
     expect req.http.X-result == "it"
     txresp
 
     rxreq
-    expect req.url == "/"
     expect req.http.X-result == "it"
     txresp
 
     rxreq
-    expect req.url == "/"
     expect req.http.X-result == "it"
     txresp
 
     rxreq
-    expect req.url == "/"
     expect req.http.X-result == "it"
     txresp
 
     rxreq
-    expect req.url == "/"
     expect req.http.X-result == "it"
     txresp
 

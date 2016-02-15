@@ -2,7 +2,6 @@ varnishtest "match() works without the need for a default language"
 
 server s1 {
     rxreq
-    expect req.url == "/"
     expect req.http.X-result == "fr"
     txresp
 } -start
