@@ -2,17 +2,17 @@ language: c
 compiler:
   - clang
   - gcc
-env:
-  - VER=3.0
 before_install:
   - sudo apt-get update
   - sudo apt-get install apt-transport-https python-docutils
   - curl -s https://repo.varnish-cache.org/ubuntu/GPG-key.txt |
     sudo apt-key add -
-  - echo "deb https://repo.varnish-cache.org/ubuntu/ precise varnish-$VER" |
+  - echo "deb-src https://repo.varnish-cache.org/ubuntu/ precise varnish-3.0" |
     sudo tee /etc/apt/sources.list.d/varnish-cache.list
   - sudo apt-get update
-  - sudo apt-get install varnish libvarnishapi-dev
+  - apt-get source varnish=3.0.7-1
+  - cd varnish-3.0.7 && ./configure && make && cd ..
   - ./autogen.sh
 script:
-  - ./configure && make CFLAGS="-Wall -Wextra -Werror" && make check
+  - ./configure VARNISHSRC=varnish-3.0.7 VMODDIR=`pwd` &&
+    make CFLAGS="-Wall -Wextra -Werror" && make check
